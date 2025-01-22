@@ -1,0 +1,67 @@
+import pdfplumber 
+import pandas as pd  
+
+# Function to extract a specific table from a PDF
+def f1(pdf_path, page_no, table_no):
+    try:
+        with pdfplumber.open(pdf_path) as pdf:  # Opening the PDF file
+            
+            if page_no < 1 or page_no > len(pdf.pages):
+                return f"Invalid page number. The PDF has {len(pdf.pages)} page(s)."
+
+            page = pdf.pages[page_no - 1]  # Access the specified page (0-based indexing internally)
+            tables = page.extract_tables()  # Extract all tables from the page
+
+            # If no tables are found on the page, return a message
+            if not tables:
+                return f"No tables found on page {page_no}."
+
+            # Check if the provided table number is valid
+            if table_no < 1 or table_no > len(tables):
+                return f"Invalid table number. Page {page_no} contains {len(tables)} table(s)."
+
+            table_data = tables[table_no - 1]  # Access the specified table (0-based indexing internally)
+
+            # Clean up the table data by removing empty rows
+            cleaned_table_data = []  # Initialize an empty list to hold cleaned rows
+            for row in table_data:
+                # Check if the row has any non-empty cells and add it to the cleaned data
+                if any(cell.strip() for cell in row if cell):  # Skip completely empty rows
+                    cleaned_table_data.append(row)
+
+            # If the cleaned data contains more than just headers, convert it into a DataFrame
+            if len(cleaned_table_data) > 1:
+                table_df = pd.DataFrame(cleaned_table_data[1:], columns=cleaned_table_data[0])  # Use the first row as headers
+            else:
+                return "The table is empty or does not have valid data."  # Handle the case of invalid data
+
+            # Remove extra spaces from column headers
+            table_df.columns = table_df.columns.str.strip()
+
+            return table_df  # Return the resulting DataFrame
+
+    # Handle any exceptions that occur during the process
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+
+
+if __name__ == "__main__":
+  pdf_file = input("Enter the path to the PDF file: ")
+  page_number = int(input("Enter the page number: "))
+  table_number = int(input("Enter the table number: "))
+  result = f1(pdf_file, page_number, table_number)
+
+  
+  # If the result is a DataFrame, display and save it as a CSV file
+  if isinstance(result, pd.DataFrame):
+        print(f"\nExtracted Table from Page {page_number}, Table {table_number}:\n")
+        print(result)  # Print the extracted table to the console
+
+        # Save the DataFrame to a CSV file with a default name
+        csv_file_name = f"Extracted_Table_Page{page_number}_Table{table_number}.csv"
+        result.to_csv(csv_file_name, index=False)  # Save without row index
+        print(f"\nThe table has been saved as '{csv_file_name}' in the current directory.")  # Confirm the save
+  else:
+        # If the result is not a DataFrame, print the error message
+        print(result)
